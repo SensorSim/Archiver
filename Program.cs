@@ -1,3 +1,6 @@
+// Archiver: append-only storage for sensor measurements.
+// Writes to its own Postgres DB. Exposes read/query endpoints for archived measurements.
+
 using archiver.Data;
 using archiver.Dtos;
 using archiver.Models;
@@ -95,35 +98,24 @@ app.MapGet("/measurements/{id:int}", async (int id, AppDbContext db) =>
 });
 
 // PUT /measurements/{id}
-app.MapPut("/measurements/{id:int}", async (int id, MeasurementIn input, AppDbContext db) =>
+// Measurements are append-only: updates are intentionally not supported.
+app.MapPut("/measurements/{id:int}", (int id) =>
 {
-    var m = await db.Measurements.FirstOrDefaultAsync(x => x.Id == id);
-    if (m is null) return Results.NotFound();
-
-    if (string.IsNullOrWhiteSpace(input.SensorId))
-        return Results.BadRequest("sensorId is required");
-
-    m.SensorId = input.SensorId;
-    m.Timestamp = input.Timestamp.ToUniversalTime();
-    m.Value = input.Value;
-
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new MeasurementOut(m.Id, m.SensorId, m.Timestamp, m.Value));
+    return Results.Problem(
+        title: "Method Not Allowed",
+        detail: "Archived measurements are immutable. Use POST /measurements to append new data.",
+        statusCode: StatusCodes.Status405MethodNotAllowed);
 });
 
 // DELETE /measurements/{id}
-app.MapDelete("/measurements/{id:int}", async (int id, AppDbContext db) =>
+// Measurements are append-only: deletion is intentionally not supported.
+app.MapDelete("/measurements/{id:int}", (int id) =>
 {
-    var m = await db.Measurements.FirstOrDefaultAsync(x => x.Id == id);
-    if (m is null) return Results.NotFound();
-
-    db.Measurements.Remove(m);
-    await db.SaveChangesAsync();
-    return Results.NoContent();
+    return Results.Problem(
+        title: "Method Not Allowed",
+        detail: "Archived measurements cannot be deleted. Use a retention policy/cleanup job if needed.",
+        statusCode: StatusCodes.Status405MethodNotAllowed);
 });
-
-
 
 for (var i = 0; i < 30; i++)
 {
