@@ -1,33 +1,46 @@
 # Archiver
 
-**Purpose:** Append-only storage for measurements.
+Measurement archive service.
 
-Archiver owns the measurement database and provides query endpoints for “what happened”.
-Other services must not read/write the Archiver DB directly.
+Stores measurements in its own Postgres database and exposes query endpoints (filters + paging). Measurements are treated as an immutable log.
 
-Database:
-- `postgres-archiver` (Docker Compose)
+## Branching
 
----
+- `dev` – development
+- `main` – stable / demo-ready
+
+## Requirements
+
+- .NET SDK (tested with 10.0.101)
+- Postgres
+
+## Run
+
+Recommended: run the full stack with Docker Compose (see `infra/docker`).
+
+Local run (you still need Postgres running):
+
+```bash
+dotnet run
+```
+
+## Configuration
+
+Environment variables:
+
+- `ConnectionStrings__Postgres` – Postgres connection string
 
 ## API
 
-Swagger:
-- `http://localhost:8081/swagger`
+Swagger (docker default): `http://localhost:8081/swagger`
 
 Endpoints:
-- `POST /measurements` – store a new measurement
-- `GET /measurements` – query archived measurements (paging + filters)
-- `GET /measurements/{id}` – fetch a single record
+
+- `POST /measurements`
+- `GET /measurements` (filters + paging)
+- `GET /measurements/{id}`
 
 Health:
+
 - `GET /health/live`
 - `GET /health/ready`
-
----
-
-## Design note: append-only
-
-Measurements are treated as an immutable log.
-If you add PUT/DELETE endpoints, they should return **405 Method Not Allowed** (or be restricted to admin/retention tasks),
-so the “archive” remains trustworthy.

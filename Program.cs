@@ -1,5 +1,4 @@
-// Archiver: append-only storage for sensor measurements.
-// Writes to its own Postgres DB. Exposes read/query endpoints for archived measurements.
+// Archiver: stores measurements (append-only).
 
 using archiver.Data;
 using archiver.Dtos;
@@ -19,7 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
 });
 
-// Health checks (za Kubernetes)
+// Health checks.
 builder.Services.AddHealthChecks()
     .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!);
 
@@ -33,7 +32,6 @@ app.MapGet("/", () => Results.Ok(new { service = "archiver", status = "ok" }));
 app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
 app.MapHealthChecks("/health/ready");
 
-// POST /measurements
 app.MapPost("/measurements", async (MeasurementIn input, AppDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(input.SensorId))
@@ -53,7 +51,6 @@ app.MapPost("/measurements", async (MeasurementIn input, AppDbContext db) =>
         new MeasurementOut(m.Id, m.SensorId, m.Timestamp, m.Value));
 });
 
-// GET /measurements
 app.MapGet("/measurements", async (
     string? sensorId,
     DateTimeOffset? from,
@@ -88,7 +85,6 @@ app.MapGet("/measurements", async (
     return Results.Ok(new { page, pageSize, total, items = data });
 });
 
-// GET /measurements/{id}
 app.MapGet("/measurements/{id:int}", async (int id, AppDbContext db) =>
 {
     var m = await db.Measurements.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
@@ -97,8 +93,7 @@ app.MapGet("/measurements/{id:int}", async (int id, AppDbContext db) =>
     return Results.Ok(new MeasurementOut(m.Id, m.SensorId, m.Timestamp, m.Value));
 });
 
-// PUT /measurements/{id}
-// Measurements are append-only: updates are intentionally not supported.
+// Measurements are append-only.
 app.MapPut("/measurements/{id:int}", (int id) =>
 {
     return Results.Problem(
@@ -107,8 +102,6 @@ app.MapPut("/measurements/{id:int}", (int id) =>
         statusCode: StatusCodes.Status405MethodNotAllowed);
 });
 
-// DELETE /measurements/{id}
-// Measurements are append-only: deletion is intentionally not supported.
 app.MapDelete("/measurements/{id:int}", (int id) =>
 {
     return Results.Problem(
