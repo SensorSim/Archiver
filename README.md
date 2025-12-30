@@ -1,103 +1,46 @@
-# Archiver Service
+# Archiver
 
-Archiver is a microservice responsible for storing sensor measurements
-in a PostgreSQL database. It is part of the SensorSim / Reactor
-Monitoring System.
+Measurement archive service.
 
-## Responsibilities
+Stores measurements in its own Postgres database and exposes query endpoints (filters + paging). Measurements are treated as an immutable log.
 
--   Accept sensor measurements (sensorId, timestamp, value)
--   Persist data using Entity Framework Core
--   Expose REST API with Swagger documentation
--   Provide health endpoints for container orchestration (Docker /
-    Kubernetes)
+## Branching
 
-## Tech Stack
+- `dev` – development
+- `main` – stable / demo-ready
 
--   .NET (ASP.NET Core Minimal API)
--   Entity Framework Core
--   PostgreSQL
--   Docker / Docker Compose
--   Swagger (OpenAPI)
+## Requirements
 
-## API Endpoints
+- .NET SDK (tested with 10.0.101)
+- Postgres
 
-### POST /measurements
+## Run
 
-Creates a new measurement.
+Recommended: run the full stack with Docker Compose (see `infra/docker`).
 
-Request body:
+Local run (you still need Postgres running):
 
-``` json
-{
-  "sensorId": "S1",
-  "timestamp": "2025-12-15T14:00:00+01:00",
-  "value": 42.0
-}
+```bash
+dotnet run
 ```
 
-Example:
+## Configuration
 
-``` bash
-curl -X POST http://localhost:8081/measurements \
-  -H "Content-Type: application/json" \
-  -d "{\"sensorId\":\"S1\",\"timestamp\":\"2025-12-15T14:00:00+01:00\",\"value\":42.0}"
-```
+Environment variables:
 
-### GET /measurements
+- `ConnectionStrings__Postgres` – Postgres connection string
 
-Returns stored measurements.
+## API
 
-Optional query parameters: - sensorId
+Swagger (docker default): `http://localhost:8081/swagger`
 
-Examples:
+Endpoints:
 
-``` bash
-curl http://localhost:8081/measurements
-curl "http://localhost:8081/measurements?sensorId=S1"
-```
+- `POST /measurements`
+- `GET /measurements` (filters + paging)
+- `GET /measurements/{id}`
 
-### Health Checks
+Health:
 
--   GET /health/live
--   GET /health/ready
-
-Examples:
-
-``` bash
-curl http://localhost:8081/health/live
-curl http://localhost:8081/health/ready
-```
-
-## Local Development
-
-### Prerequisites
-
--   Docker
--   .NET SDK
-
-### Run with Docker Compose
-
-``` bash
-docker compose up -d
-```
-
-Swagger UI:
-
-    http://localhost:8081/swagger
-
-## Database
-
--   PostgreSQL
--   Database schema managed with EF Core migrations
--   Migrations are applied automatically on service startup
-
-## Docker
-
-The service is containerized and designed to be stateless. It can be
-scaled horizontally in Kubernetes environments.
-
-## Architecture Role
-
-Archiver acts as the persistence layer in a microservice-based system.
-Other services communicate with Archiver via REST APIs.
+- `GET /health/live`
+- `GET /health/ready`

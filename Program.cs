@@ -1,3 +1,5 @@
+// Archiver: stores measurements (append-only).
+
 using archiver.Data;
 using archiver.Dtos;
 using archiver.Models;
@@ -16,7 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
 });
 
-// Health checks (za Kubernetes)
+// Health checks.
 builder.Services.AddHealthChecks()
     .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!);
 
@@ -30,7 +32,6 @@ app.MapGet("/", () => Results.Ok(new { service = "archiver", status = "ok" }));
 app.MapGet("/health/live", () => Results.Ok(new { status = "live" }));
 app.MapHealthChecks("/health/ready");
 
-// POST /measurements
 app.MapPost("/measurements", async (MeasurementIn input, AppDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(input.SensorId))
@@ -50,7 +51,6 @@ app.MapPost("/measurements", async (MeasurementIn input, AppDbContext db) =>
         new MeasurementOut(m.Id, m.SensorId, m.Timestamp, m.Value));
 });
 
-// GET /measurements
 app.MapGet("/measurements", async (
     string? sensorId,
     DateTimeOffset? from,
@@ -85,7 +85,6 @@ app.MapGet("/measurements", async (
     return Results.Ok(new { page, pageSize, total, items = data });
 });
 
-// GET /measurements/{id}
 app.MapGet("/measurements/{id:int}", async (int id, AppDbContext db) =>
 {
     var m = await db.Measurements.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
@@ -94,36 +93,22 @@ app.MapGet("/measurements/{id:int}", async (int id, AppDbContext db) =>
     return Results.Ok(new MeasurementOut(m.Id, m.SensorId, m.Timestamp, m.Value));
 });
 
-// PUT /measurements/{id}
-app.MapPut("/measurements/{id:int}", async (int id, MeasurementIn input, AppDbContext db) =>
+// Measurements are append-only.
+app.MapPut("/measurements/{id:int}", (int id) =>
 {
-    var m = await db.Measurements.FirstOrDefaultAsync(x => x.Id == id);
-    if (m is null) return Results.NotFound();
-
-    if (string.IsNullOrWhiteSpace(input.SensorId))
-        return Results.BadRequest("sensorId is required");
-
-    m.SensorId = input.SensorId;
-    m.Timestamp = input.Timestamp.ToUniversalTime();
-    m.Value = input.Value;
-
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new MeasurementOut(m.Id, m.SensorId, m.Timestamp, m.Value));
+    return Results.Problem(
+        title: "Method Not Allowed",
+        detail: "Archived measurements are immutable. Use POST /measurements to append new data.",
+        statusCode: StatusCodes.Status405MethodNotAllowed);
 });
 
-// DELETE /measurements/{id}
-app.MapDelete("/measurements/{id:int}", async (int id, AppDbContext db) =>
+app.MapDelete("/measurements/{id:int}", (int id) =>
 {
-    var m = await db.Measurements.FirstOrDefaultAsync(x => x.Id == id);
-    if (m is null) return Results.NotFound();
-
-    db.Measurements.Remove(m);
-    await db.SaveChangesAsync();
-    return Results.NoContent();
+    return Results.Problem(
+        title: "Method Not Allowed",
+        detail: "Archived measurements cannot be deleted. Use a retention policy/cleanup job if needed.",
+        statusCode: StatusCodes.Status405MethodNotAllowed);
 });
-
-
 
 for (var i = 0; i < 30; i++)
 {
