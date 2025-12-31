@@ -49,3 +49,17 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+  deploy-k8s:
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      needs: build-and-push
+      runs-on: self-hosted
+      steps:
+        - name: kubectl context
+          run: |
+            kubectl config current-context
+            kubectl version --client
+
+        - name: Rollout restart (archiver)
+          run: |
+            kubectl -n reactor-monitor rollout restart deployment/archiver
+            kubectl -n reactor-monitor rollout status deployment/archiver --timeout=180s
