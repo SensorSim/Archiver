@@ -15,10 +15,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository_owner }}/reactor-monitor-archiver
 
-defaults:
-  run:
-    working-directory: Archiver
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -29,7 +25,7 @@ jobs:
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/src" \
-            -w /src/Archiver \
+            -w /src \
             mcr.microsoft.com/dotnet/sdk:10.0 \
             dotnet test ./archiver.csproj -c Release
 
@@ -51,14 +47,14 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=sha
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
 
       - name: Build (push only on main/tags)
         uses: docker/build-push-action@v6
         with:
-          context: ./Archiver
-          file: ./Archiver/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
