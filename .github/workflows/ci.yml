@@ -4,10 +4,7 @@ on:
   push:
     branches: [ "main", "dev" ]
   pull_request:
-
-defaults:
-  run:
-    working-directory: Archiver
+    branches: [ "main" ]
 
 jobs:
   build-test:
