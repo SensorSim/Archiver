@@ -5,6 +5,10 @@ on:
     branches: [ "main", "dev" ]
   pull_request:
 
+defaults:
+  run:
+    working-directory: Archiver
+
 jobs:
   build-test:
     runs-on: ubuntu-latest

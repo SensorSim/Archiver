@@ -4,6 +4,10 @@ on:
   push:
     branches: [ "main" ]
 
+defaults:
+  run:
+    working-directory: Archiver
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -16,4 +20,4 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t archiver:ci .
+          docker build -t archiver:ci -f Dockerfile .
