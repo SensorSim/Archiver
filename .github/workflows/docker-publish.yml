@@ -20,6 +20,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore ./archiver.csproj
+
+      - name: Build
+        run: dotnet build ./archiver.csproj -c Release --no-restore
+
+      - name: Test
+        run: dotnet test ./archiver.csproj -c Release --no-build
+
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
