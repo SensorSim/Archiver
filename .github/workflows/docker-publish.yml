@@ -2,9 +2,10 @@ name: docker-publish
 
 on:
   push:
-    branches: ["main"]
+    branches: ["dev", "main"]
     tags: ["v*.*.*"]
   pull_request:
+    branches: ["dev", "main"]
 
 permissions:
   contents: read
@@ -20,26 +21,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Restore
-        run: dotnet restore ./archiver.csproj
-
-      - name: Build
-        run: dotnet build ./archiver.csproj -c Release --no-restore
-
-      - name: Test
-        run: dotnet test ./archiver.csproj -c Release --no-build
-
+      - name: Test (dotnet test)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            mcr.microsoft.com/dotnet/sdk:10.0 \
+            dotnet test ./archiver.csproj -c Release
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -53,28 +47,29 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
             type=ref,event=tag
 
-      - name: Build (and push on main/tags)
+      - name: Build (push only on main/tags)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-  deploy-k8s:
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      needs: build-and-push
-      runs-on: self-hosted
-      steps:
-        - name: kubectl context
-          run: |
-            kubectl config current-context
-            kubectl version --client
 
-        - name: Rollout restart (archiver)
-          run: |
-            kubectl -n reactor-monitor rollout restart deployment/archiver
-            kubectl -n reactor-monitor rollout status deployment/archiver --timeout=180s
+  deploy-k8s:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-push
+    runs-on: self-hosted
+    steps:
+      - name: kubectl context
+        run: |
+          kubectl config current-context
+          kubectl version --client
+
+      - name: Rollout restart (archiver)
+        run: |
+          kubectl -n reactor-monitor rollout restart deployment/archiver
+          kubectl -n reactor-monitor rollout status deployment/archiver --timeout=180s

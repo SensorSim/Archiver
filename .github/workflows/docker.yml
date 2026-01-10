@@ -11,6 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Test (dotnet test)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            mcr.microsoft.com/dotnet/sdk:10.0 \
+            dotnet test ./archiver.csproj -c Release
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
